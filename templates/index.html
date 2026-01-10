@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Quantum VQE Cloud Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      background: radial-gradient(circle at top, #020617, #000);
+      color: #e5e7eb;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0;
+      text-align: center;
+    }
+    header {
+      padding: 25px;
+      border-bottom: 1px solid #1e293b;
+    }
+    header h1 {
+      color: #38bdf8;
+      margin: 0;
+      font-size: 30px;
+    }
+    header p {
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+    .controls {
+      margin-top: 20px;
+    }
+    select, button {
+      padding: 10px 14px;
+      margin: 8px;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+    select {
+      background: #020617;
+      color: white;
+      border: 1px solid #334155;
+    }
+    button {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 25px;
+      padding: 30px;
+      max-width: 1400px;
+      margin: auto;
+    }
+    .card {
+      background: #020617;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 0 25px rgba(56,189,248,0.05);
+      animation: fadeIn 0.6s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    canvas {
+      background: white;
+      border-radius: 12px;
+      padding: 8px;
+      max-height: 420px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid #334155;
+      padding: 8px;
+    }
+    th {
+      background: #020617;
+      color: #facc15;
+    }
+    .status {
+      margin-top: 12px;
+      color: #facc15;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>⚛️ Quantum VQE Cloud Dashboard</h1>
+  <p>Part 1: H₂ / LiH (PySCF + VQE) · Part 2: NH₃BH₃ (Active Space + VQE)</p>
+</header>
+
+<div class="controls">
+  <select id="molecule">
+    <option value="H2">H₂</option>
+    <option value="LIH">LiH</option>
+  </select>
+
+  <button id="btnPart1" onclick="runPart1()">Run Part 1</button>
+
+  <button id="btnPart2" onclick="runPart2()">Run Part 2 (NH3BH3)</button>
+
+  <div class="status" id="statusText">Ready ✅</div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>Part 1: Energy Comparison</h3>
+    <p id="part1Text"></p>
+    <canvas id="part1Chart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Part 1: VQE Convergence</h3>
+    <canvas id="part1ConvChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Part 2: NH3BH3 VQE Convergence</h3>
+    <p id="part2Text"></p>
+    <canvas id="part2Chart"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Part 2: ΔE / Thermodynamics Table</h3>
+    <table id="deltaTable">
+      <tr>
+        <th>Metric</th>
+        <th>Value</th>
+        <th>Meaning</th>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<script>
+let chart1, chart1Conv, chart2;
+
+const statusText = document.getElementById("statusText");
+
+function setStatus(msg, loading=false){
+  statusText.innerText = msg;
+  document.getElementById("btnPart1").disabled = loading;
+  document.getElementById("btnPart2").disabled = loading;
+}
+
+// --------------------- Part 1 ---------------------
+function runPart1(){
+  const mol = document.getElementById("molecule").value;
+  setStatus("Running Part 1 VQE... ⏳", true);
+
+  fetch(`/api/vqe?molecule=${mol}`)
+    .then(r => r.json())
+    .then(d => {
+      setStatus("Part 1 Completed ✅", false);
+
+      document.getElementById("part1Text").innerText =
+        `HF: ${d.hf_energy} Ha | VQE: ${d.vqe_energy} Ha | Ref: ${d.reference_energy} Ha | Error: ${d.absolute_error.toFixed(4)}`;
+
+      // energy compare bar chart
+      if(chart1) chart1.destroy();
+      chart1 = new Chart(document.getElementById("part1Chart"), {
+        type: "bar",
+        data: {
+          labels: ["HF", "VQE", "Reference"],
+          datasets: [{
+            data: [d.hf_energy, d.vqe_energy, d.reference_energy],
+            backgroundColor: ["#facc15", "#38bdf8", "#22c55e"]
+          }]
+        },
+        options: { animation: { duration: 1300 }, plugins:{legend:{display:false}} }
+      });
+
+      // convergence chart
+      if(chart1Conv) chart1Conv.destroy();
+      chart1Conv = new Chart(document.getElementById("part1ConvChart"), {
+        type: "line",
+        data: {
+          labels: d.energy_history.map((_,i)=>i+1),
+          datasets: [{
+            label: "VQE Energy",
+            data: d.energy_history,
+            borderColor: "#38bdf8",
+            tension: 0.25
+          }]
+        },
+        options: { animation: { duration: 1300 } }
+      });
+
+    })
+    .catch(err => {
+      setStatus("Error in Part 1 ❌", false);
+      alert(err);
+    });
+}
+
+// --------------------- Part 2 ---------------------
+function runPart2(){
+  setStatus("Running NH3BH3 (PySCF + VQE)... ⏳", true);
+
+  fetch(`/api/nh3bh3`)
+    .then(r => r.json())
+    .then(d => {
+      setStatus("Part 2 Completed ✅", false);
+
+      document.getElementById("part2Text").innerText =
+        `HF: ${d.hf_energy} Ha | VQE: ${d.vqe_energy} Ha | Qubits: ${d.n_qubits}`;
+
+      // convergence
+      if(chart2) chart2.destroy();
+      chart2 = new Chart(document.getElementById("part2Chart"), {
+        type: "line",
+        data: {
+          labels: d.energy_history.map((_,i)=>i+1),
+          datasets: [{
+            label: "NH3BH3 VQE Energy",
+            data: d.energy_history,
+            borderColor: "#22c55e",
+            borderWidth: 3,
+            tension: 0.25
+          }]
+        },
+        options: { animation: { duration: 1600 } }
+      });
+
+      // Δ table
+      const table = document.getElementById("deltaTable");
+      table.innerHTML = `
+        <tr><th>Metric</th><th>Value</th><th>Meaning</th></tr>
+        <tr><td>Binding Energy</td><td>${d.binding_energy_kcal} kcal/mol</td><td>Should be negative (stable binding)</td></tr>
+        <tr><td>Gibbs Free Energy</td><td>${d.gibbs_free_energy_kcal} kcal/mol</td><td>ΔG < 0 → spontaneous</td></tr>
+        <tr><td>Iterations</td><td>${d.iterations}</td><td>VQE optimizer steps</td></tr>
+        <tr><td>Success</td><td>${d.success}</td><td>Optimizer convergence</td></tr>
+      `;
+
+    })
+    .catch(err => {
+      setStatus("Error in Part 2 ❌", false);
+      alert(err);
+    });
+}
+</script>
+
+</body>
+</html>
