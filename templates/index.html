@@ -2,256 +2,489 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quantum VQE Cloud Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Google Fonts for that tech look -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
   <style>
+    :root {
+      --bg-dark: #030712;
+      --card-bg: rgba(15, 23, 42, 0.7);
+      --accent-cyan: #22d3ee;
+      --accent-green: #4ade80;
+      --accent-gold: #fbbf24;
+      --text-main: #f1f5f9;
+      --border-color: rgba(56, 189, 248, 0.2);
+    }
+
     body {
-      background: radial-gradient(circle at top, #020617, #000);
-      color: #e5e7eb;
-      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
       margin: 0;
-      text-align: center;
+      overflow-x: hidden;
+      min-height: 100vh;
     }
+
+    /* Quantum Particle Background */
+    #canvas-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%);
+    }
+
     header {
-      padding: 25px;
-      border-bottom: 1px solid #1e293b;
+      padding: 40px 20px;
+      text-align: center;
+      background: rgba(2, 6, 23, 0.5);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      animation: slideDown 0.8s cubic-bezier(0.2, 1, 0.3, 1);
     }
+
     header h1 {
-      color: #38bdf8;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.5rem;
+      letter-spacing: 4px;
       margin: 0;
-      font-size: 30px;
+      background: linear-gradient(to right, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
     }
+
     header p {
       color: #94a3b8;
-      margin-top: 6px;
+      font-weight: 300;
+      margin-top: 10px;
+      letter-spacing: 1px;
     }
+
     .controls {
-      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 30px auto;
+      flex-wrap: wrap;
     }
+
     select, button {
-      padding: 10px 14px;
-      margin: 8px;
-      border-radius: 8px;
-      border: none;
-      font-size: 15px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.85rem;
+      transition: all 0.3s ease;
+      outline: none;
     }
+
     select {
-      background: #020617;
+      background: rgba(30, 41, 59, 0.8);
       color: white;
-      border: 1px solid #334155;
-    }
-    button {
-      background: linear-gradient(135deg, #22c55e, #16a34a);
-      font-weight: bold;
+      border: 1px solid var(--border-color);
       cursor: pointer;
     }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+
+    button {
+      background: transparent;
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      font-weight: bold;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
     }
+
+    button::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.2), transparent);
+      transition: 0.5s;
+      z-index: -1;
+    }
+
+    button:hover::before {
+      left: 100%;
+    }
+
+    button:hover {
+      box-shadow: 0 0 15px var(--accent-cyan);
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
+    #btnPart2 {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    #btnPart2:hover {
+      background: var(--accent-green);
+      box-shadow: 0 0 15px var(--accent-green);
+      color: #000;
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: wait;
+      filter: grayscale(1);
+    }
+
+    .status-container {
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      background-color: var(--accent-gold);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent-gold);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 20px var(--accent-gold); }
+      100% { transform: scale(0.95); opacity: 0.7; }
+    }
+
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-      gap: 25px;
-      padding: 30px;
-      max-width: 1400px;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 30px;
+      padding: 40px;
+      max-width: 1600px;
       margin: auto;
     }
+
     .card {
-      background: #020617;
-      border: 1px solid #1e293b;
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: 0 0 25px rgba(56,189,248,0.05);
-      animation: fadeIn 0.6s ease-in;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      transition: transform 0.3s ease, border-color 0.3s ease;
+      animation: fadeInUp 0.8s ease-out backwards;
     }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
+
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(56, 189, 248, 0.5);
     }
+
+    .card h3 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1rem;
+      margin-top: 0;
+      color: var(--accent-cyan);
+      border-left: 4px solid var(--accent-cyan);
+      padding-left: 12px;
+      margin-bottom: 20px;
+    }
+
+    .data-text {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+
     canvas {
-      background: white;
+      width: 100% !important;
+      max-height: 350px;
       border-radius: 12px;
-      padding: 8px;
-      max-height: 420px;
     }
+
     table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0 8px;
       margin-top: 12px;
-      font-size: 14px;
     }
-    th, td {
-      border: 1px solid #334155;
-      padding: 8px;
-    }
+
     th {
-      background: #020617;
-      color: #facc15;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      color: var(--accent-gold);
+      padding: 12px;
+      text-align: left;
     }
-    .status {
-      margin-top: 12px;
-      color: #facc15;
-      font-weight: 600;
+
+    td {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+      font-size: 0.85rem;
     }
+
+    td:first-child { border-radius: 8px 0 0 8px; font-weight: bold; color: var(--accent-cyan); }
+    td:last-child { border-radius: 0 8px 8px 0; color: #94a3b8; }
+
+    @keyframes slideDown {
+      from { transform: translateY(-100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Staggering card animations */
+    .card:nth-child(1) { animation-delay: 0.2s; }
+    .card:nth-child(2) { animation-delay: 0.4s; }
+    .card:nth-child(3) { animation-delay: 0.6s; }
+    .card:nth-child(4) { animation-delay: 0.8s; }
+
   </style>
 </head>
-
 <body>
 
+<canvas id="canvas-bg"></canvas>
+
 <header>
-  <h1>⚛️ Quantum VQE Cloud Dashboard</h1>
-  <p>Part 1: H₂ / LiH (PySCF + VQE) · Part 2: NH₃BH₃ (Active Space + VQE)</p>
+  <h1>⚛️ Quantum VQE Intelligence</h1>
+  <p>Cloud-Native Variational Quantum Eigensolver Visualization</p>
+  
+  <div class="controls">
+    <select id="molecule">
+      <option value="H2">Hydrogen (H₂)</option>
+      <option value="LIH">Lithium Hydride (LiH)</option>
+    </select>
+    <button id="btnPart1" onclick="runPart1()">Initialize Engine</button>
+    <button id="btnPart2" onclick="runPart2()">Deep Simulation (NH3BH3)</button>
+  </div>
+
+  <div class="status-container">
+    <div class="pulse-dot" id="statusDot"></div>
+    <div class="status" id="statusText">System Ready</div>
+  </div>
 </header>
 
-<div class="controls">
-  <select id="molecule">
-    <option value="H2">H₂</option>
-    <option value="LIH">LiH</option>
-  </select>
-
-  <button id="btnPart1" onclick="runPart1()">Run Part 1</button>
-
-  <button id="btnPart2" onclick="runPart2()">Run Part 2 (NH3BH3)</button>
-
-  <div class="status" id="statusText">Ready ✅</div>
-</div>
-
 <div class="grid">
+  <!-- Card 1 -->
   <div class="card">
-    <h3>Part 1: Energy Comparison</h3>
-    <p id="part1Text"></p>
+    <h3>Energy Benchmark</h3>
+    <div class="data-text" id="part1Text">Awaiting initialization...</div>
     <canvas id="part1Chart"></canvas>
   </div>
 
+  <!-- Card 2 -->
   <div class="card">
-    <h3>Part 1: VQE Convergence</h3>
+    <h3>Quantum Convergence Trace</h3>
+    <div class="data-text">Optimization path of the variational parameters.</div>
     <canvas id="part1ConvChart"></canvas>
   </div>
 
+  <!-- Card 3 -->
   <div class="card">
-    <h3>Part 2: NH3BH3 VQE Convergence</h3>
-    <p id="part2Text"></p>
+    <h3>Complex System (NH₃BH₃)</h3>
+    <div class="data-text" id="part2Text">Active Space + VQE integration results.</div>
     <canvas id="part2Chart"></canvas>
   </div>
 
+  <!-- Card 4 -->
   <div class="card">
-    <h3>Part 2: ΔE / Thermodynamics Table</h3>
+    <h3>Thermodynamic Analytics</h3>
     <table id="deltaTable">
-      <tr>
-        <th>Metric</th>
-        <th>Value</th>
-        <th>Meaning</th>
-      </tr>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Quantum Result</th>
+          <th>Interpretation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Binding Energy</td><td>--</td><td>Stability indicator</td></tr>
+        <tr><td>Gibbs Free</td><td>--</td><td>Reaction spontaneity</td></tr>
+      </tbody>
     </table>
   </div>
 </div>
 
 <script>
+/** BACKGROUND ANIMATION **/
+const canvas = document.getElementById('canvas-bg');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+class Particle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = Math.random() * canvas.height;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.size = Math.random() * 2;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) this.reset();
+  }
+  draw() {
+    ctx.fillStyle = 'rgba(34, 211, 238, 0.3)';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => {
+    p.update();
+    p.draw();
+  });
+  requestAnimationFrame(animate);
+}
+animate();
+
+/** CHART LOGIC **/
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } }
+  },
+  scales: {
+    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+  }
+};
+
 let chart1, chart1Conv, chart2;
 
-const statusText = document.getElementById("statusText");
-
 function setStatus(msg, loading=false){
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusDot");
   statusText.innerText = msg;
+  statusDot.style.backgroundColor = loading ? "#22d3ee" : "#fbbf24";
+  statusDot.style.boxShadow = loading ? "0 0 20px #22d3ee" : "0 0 20px #fbbf24";
+  
   document.getElementById("btnPart1").disabled = loading;
   document.getElementById("btnPart2").disabled = loading;
 }
 
-// --------------------- Part 1 ---------------------
 function runPart1(){
   const mol = document.getElementById("molecule").value;
-  setStatus("Running Part 1 VQE... ⏳", true);
+  setStatus(`Processing ${mol} Quantum States...`, true);
 
   fetch(`/api/vqe?molecule=${mol}`)
     .then(r => r.json())
     .then(d => {
-      setStatus("Part 1 Completed ✅", false);
+      setStatus("Simulation Complete ✅", false);
 
-      document.getElementById("part1Text").innerText =
-        `HF: ${d.hf_energy} Ha | VQE: ${d.vqe_energy} Ha | Ref: ${d.reference_energy} Ha | Error: ${d.absolute_error.toFixed(4)}`;
+      document.getElementById("part1Text").innerHTML = `
+        <span style="color:var(--accent-gold)">HF:</span> ${d.hf_energy.toFixed(6)} | 
+        <span style="color:var(--accent-cyan)">VQE:</span> ${d.vqe_energy.toFixed(6)} | 
+        <span style="color:var(--accent-green)">Err:</span> ${d.absolute_error.toExponential(3)}`;
 
-      // energy compare bar chart
       if(chart1) chart1.destroy();
       chart1 = new Chart(document.getElementById("part1Chart"), {
         type: "bar",
         data: {
-          labels: ["HF", "VQE", "Reference"],
+          labels: ["HF Energy", "VQE Energy", "Reference"],
           datasets: [{
             data: [d.hf_energy, d.vqe_energy, d.reference_energy],
-            backgroundColor: ["#facc15", "#38bdf8", "#22c55e"]
+            backgroundColor: ["rgba(251, 191, 36, 0.6)", "rgba(34, 211, 238, 0.6)", "rgba(74, 222, 128, 0.6)"],
+            borderColor: ["#fbbf24", "#22d3ee", "#4ade80"],
+            borderWidth: 2
           }]
         },
-        options: { animation: { duration: 1300 }, plugins:{legend:{display:false}} }
+        options: chartDefaults
       });
 
-      // convergence chart
       if(chart1Conv) chart1Conv.destroy();
       chart1Conv = new Chart(document.getElementById("part1ConvChart"), {
         type: "line",
         data: {
           labels: d.energy_history.map((_,i)=>i+1),
           datasets: [{
-            label: "VQE Energy",
+            label: "Energy (Ha)",
             data: d.energy_history,
-            borderColor: "#38bdf8",
-            tension: 0.25
+            borderColor: "#22d3ee",
+            backgroundColor: "rgba(34, 211, 238, 0.1)",
+            fill: true,
+            tension: 0.4,
+            pointRadius: 2
           }]
         },
-        options: { animation: { duration: 1300 } }
+        options: chartDefaults
       });
-
     })
     .catch(err => {
-      setStatus("Error in Part 1 ❌", false);
-      alert(err);
+      setStatus("Compute Error ❌", false);
+      console.error(err);
     });
 }
 
-// --------------------- Part 2 ---------------------
 function runPart2(){
-  setStatus("Running NH3BH3 (PySCF + VQE)... ⏳", true);
+  setStatus("Resolving NH3BH3 Hamiltonian... ⏳", true);
 
   fetch(`/api/nh3bh3`)
     .then(r => r.json())
     .then(d => {
-      setStatus("Part 2 Completed ✅", false);
+      setStatus("Active Space Solved ✅", false);
 
-      document.getElementById("part2Text").innerText =
-        `HF: ${d.hf_energy} Ha | VQE: ${d.vqe_energy} Ha | Qubits: ${d.n_qubits}`;
+      document.getElementById("part2Text").innerHTML = 
+        `Active Qubits: <span style="color:var(--accent-cyan)">${d.n_qubits}</span> | HF Baseline: ${d.hf_energy.toFixed(4)}`;
 
-      // convergence
       if(chart2) chart2.destroy();
       chart2 = new Chart(document.getElementById("part2Chart"), {
         type: "line",
         data: {
           labels: d.energy_history.map((_,i)=>i+1),
           datasets: [{
-            label: "NH3BH3 VQE Energy",
+            label: "Iteration Energy",
             data: d.energy_history,
-            borderColor: "#22c55e",
+            borderColor: "#4ade80",
             borderWidth: 3,
-            tension: 0.25
+            tension: 0.3,
+            pointBackgroundColor: "#4ade80"
           }]
         },
-        options: { animation: { duration: 1600 } }
+        options: chartDefaults
       });
 
-      // Δ table
-      const table = document.getElementById("deltaTable");
+      const table = document.getElementById("deltaTable").getElementsByTagName('tbody')[0];
       table.innerHTML = `
-        <tr><th>Metric</th><th>Value</th><th>Meaning</th></tr>
-        <tr><td>Binding Energy</td><td>${d.binding_energy_kcal} kcal/mol</td><td>Should be negative (stable binding)</td></tr>
-        <tr><td>Gibbs Free Energy</td><td>${d.gibbs_free_energy_kcal} kcal/mol</td><td>ΔG < 0 → spontaneous</td></tr>
-        <tr><td>Iterations</td><td>${d.iterations}</td><td>VQE optimizer steps</td></tr>
-        <tr><td>Success</td><td>${d.success}</td><td>Optimizer convergence</td></tr>
+        <tr><td>Binding Energy</td><td>${d.binding_energy_kcal.toFixed(2)} kcal/mol</td><td>${d.binding_energy_kcal < 0 ? 'Stable Complex' : 'Unstable'}</td></tr>
+        <tr><td>Gibbs Free (ΔG)</td><td>${d.gibbs_free_energy_kcal.toFixed(2)} kcal/mol</td><td>${d.gibbs_free_energy_kcal < 0 ? 'Spontaneous' : 'Non-spontaneous'}</td></tr>
+        <tr><td>Optimizer Steps</td><td>${d.iterations}</td><td>Convergence reached</td></tr>
       `;
-
     })
     .catch(err => {
-      setStatus("Error in Part 2 ❌", false);
-      alert(err);
+      setStatus("Active Space Error ❌", false);
+      alert("Simulation failed. Ensure backend API is active.");
     });
 }
 </script>
